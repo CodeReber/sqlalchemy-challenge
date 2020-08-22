@@ -100,6 +100,59 @@ def tobs():
 
     return jsonify(tobs_date_list)
 
+@app.route("/api/v1.0/<start>")
+def temp_range_start(start):
+    """TMIN, TAVG, adn TMAX per date starting from start date.
+
+    Args: 
+        start (string): a date string in the format $y-%m-%d
+
+    Returns:
+        TMIN, TAVG, and TMAX
+    """
+    # create session
+    session = Session(engine)
+
+    return_list = []
+
+    results = session.query(
+        Measurement.date,\
+        func.min(Measurement.tobs),\
+        func.avg(Measurement.tobs),\
+        func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).\
+        group_by(Measurement.date).all()
+     
+    for date, min, avg, max in results:
+        new_dict = {}
+        new_dict["Date"] = date
+        new_dict["TMIN"] = min
+        new_dict["TAVG"] = avg
+        new_dict["TMAX"] = max
+        return_list.append(new_dict)
+
+    session.close()
+
+    return jsonify(return_list)
+
+@app.route("/api/v1.0/<start>/<end>")
+def get_t_start_stop(start,end):
+    session = Session(engine)
+    queryresult = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+    session.close()
+
+    tobsall = []
+    for min,avg,max in queryresult:
+        tobs_dict = {}
+        tobs_dict["Min"] = min
+        tobs_dict["Average"] = avg
+        tobs_dict["Max"] = max
+        tobsall.append(tobs_dict)
+
+    return jsonify(tobsall)
+
+ 
 
 if __name__ == "__main__":
     app.run(debug=True)
