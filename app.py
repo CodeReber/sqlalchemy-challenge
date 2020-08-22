@@ -3,6 +3,8 @@ import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
+import pandas as pd
+import datetime as dt
 
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 Base = automap_base()
@@ -38,43 +40,65 @@ def home():
 
 @app.route("/api/v1.0/precipitation")
 def prcp():
-    session.query(Measurement.prcp).all() 
-    return (
-        f"Welcome to the Justice League API!<br/>"
-        f"Available Routes:<br/>"
-        f"/api/v1.0/justice-league<br/>"
-        f"/api/v1.0/justice-league/superhero/batman"
-    )
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+
+    # Query for the dates and precipitation values
+    results =   session.query(Measurement.date, Measurement.prcp).\
+                order_by(Measurement.date).all()
+
+    # Convert to list of dictionaries to jsonify
+    prcp_date_list = []
+
+    for date, prcp in results:
+        new_dict = {}
+        new_dict[date] = prcp
+        prcp_date_list.append(new_dict)
+
+    session.close()
+
+    return jsonify(prcp_date_list)
 
 
-# @app.route("/api/v1.0/justice-league/real_name/<real_name>")
-# def justice_league_by_real_name(real_name):
-#     """Fetch the Justice League character whose real_name matches
-#        the path variable supplied by the user, or a 404 if not."""
+@app.route("/api/v1.0/stations")
+def station():
+    #create session
+    session = Session(engine)
+    stations = {}
+    #query
+    results = session.query(Station.station, Station.name).all()
+    for stat,name in results:
+        stations[stat] = name
+    session.close()
 
-#     canonicalized = real_name.replace(" ", "").lower()
-#     for character in justice_league_members:
-#         search_term = character["real_name"].replace(" ", "").lower()
+    return jsonify(stations)
 
-#         if search_term == canonicalized:
-#             return jsonify(character)
+@app.route("/api/v1.0/tobs")
+def tobs():
+    #create session
+    session = Session(engine)
+    #Get last date contained in the dataset and date from one year ago
+    last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    last_year_date = (dt.datetime.strptime(last_date[0],'%Y-%m-%d')\
+        - dt.timedelta(days=365)).strftime('%Y-%m-%d')
 
-#     return jsonify({"error": f"Character with real_name {real_name} not found."}), 404
+    #query for the dates and temp values
 
+    results = session.query(Measurement.date, Measurement.tobs).\
+        filter(Measurement.date >= last_year_date).\
+            order_by(Measurement.date).all()
 
-# @app.route("/api/v1.0/justice-league/superhero/<superhero>")
-# def justice_league_by_superhero__name(superhero):
-#     """Fetch the Justice League character whose superhero matches
-#        the path variable supplied by the user, or a 404 if not."""
+    #conver to list of dictionaries to jsonify
+    tobs_date_list = []
 
-#     canonicalized = superhero.replace(" ", "").lower()
-#     for character in justice_league_members:
-#         search_term = character["superhero"].replace(" ", "").lower()
+    for date, tobs in results:
+        new_dict = {}
+        new_dict[date] = tobs
+        tobs_date_list.append(new_dict)
 
-#         if search_term == canonicalized:
-#             return jsonify(character)
+    session.close()
 
-#     return jsonify({"error": "Character not found."}), 404
+    return jsonify(tobs_date_list)
 
 
 if __name__ == "__main__":
